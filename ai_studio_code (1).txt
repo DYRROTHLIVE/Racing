@@ -1,0 +1,37 @@
+# Application Server
+NODE_ENV=production
+PORT=5000
+API_BASE_URL=https://api.razy.tv
+
+# PostgreSQL Database
+DATABASE_URL="postgresql://razy_user:RazySecurePassword2026@localhost:5432/razy_ott_db?schema=public"
+
+# Redis Cache & Message Queues
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_PASSWORD=""
+
+# JWT Secrets
+JWT_SECRET="RAZY_SUPER_SECRET_AUTHENTICATION_KEY_2026"
+JWT_EXPIRES_IN="7d"
+
+# Storage & CDN (RAzy Edge Delivery)
+STORAGE_ENDPOINT="https://s3.razy.tv"
+STORAGE_BUCKET="razy-media-bucket"
+STORAGE_ACCESS_KEY="RAZY_AWS_KEY"
+STORAGE_SECRET_KEY="RAZY_AWS_SECRET"
+CDN_BASE_URL="https://cdn.razy.tv"
+
+# Transcoder & RTMP Streaming Engine
+RTMP_INGEST_URL="rtmp://live.razy.tv/app"
+FFMPEG_PATH="/usr/bin/ffmpeg"
+
+# RAzy AI Default LLM Credentials
+OPENAI_API_KEY="sk-..."
+GROQ_API_KEY="gsk_..."
+DEEPSEEK_API_KEY="dsk-..."
+
+# Jenkins Automated Mobile/TV App Builder
+JENKINS_BASE_URL="https://ci.razy.tv"
+JENKINS_USER="razy_builder"
+JENKINS_API_TOKEN="jenkins_token_here"
