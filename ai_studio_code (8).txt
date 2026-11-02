@@ -1,0 +1,4 @@
+NEXT_PUBLIC_API_URL="https://api.razy.stream/v1"
+PAYMENT_WEBHOOK_SECRET="whsec_98729384729384792384"
+NEXT_PUBLIC_ENABLE_PWA="true"
+NEXT_PUBLIC_CDN_HOST="https://media-cdn.razy.stream"

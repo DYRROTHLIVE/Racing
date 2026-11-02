@@ -1,0 +1,115 @@
+'use client';
+
+import React, { useRef } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { ChevronLeft, ChevronRight, Play } from 'lucide-react';
+import { MediaItem, WatchProgress } from '@/types/razy';
+
+interface ContentRailProps {
+  title: string;
+  items: MediaItem[];
+  progressMap?: Record<string, WatchProgress>;
+  onPlay: (item: MediaItem) => void;
+}
+
+export const ContentRail: React.FC<ContentRailProps> = ({ title, items, progressMap, onPlay }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (!scrollRef.current) return;
+    const { scrollLeft, clientWidth } = scrollRef.current;
+    const offset = direction === 'left' ? -clientWidth * 0.75 : clientWidth * 0.75;
+    scrollRef.current.scrollTo({ left: scrollLeft + offset, behavior: 'smooth' });
+  };
+
+  if (!items || items.length === 0) return null;
+
+  return (
+    <section className="relative group/rail py-4">
+      <h2 className="text-lg sm:text-xl font-bold text-white px-4 sm:px-6 lg:px-8 mb-3 tracking-wide">
+        {title}
+      </h2>
+
+      {/* Rail Nav Buttons for Desktop */}
+      <button
+        onClick={() => scroll('left')}
+        aria-label="Scroll left"
+        className="hidden md:flex absolute left-2 top-[55%] -translate-y-1/2 z-20 w-10 h-10 items-center justify-center rounded-full bg-black/70 text-white border border-white/10 opacity-0 group-hover/rail:opacity-100 hover:scale-110 transition"
+      >
+        <ChevronLeft className="w-5 h-5" />
+      </button>
+
+      <button
+        onClick={() => scroll('right')}
+        aria-label="Scroll right"
+        className="hidden md:flex absolute right-2 top-[55%] -translate-y-1/2 z-20 w-10 h-10 items-center justify-center rounded-full bg-black/70 text-white border border-white/10 opacity-0 group-hover/rail:opacity-100 hover:scale-110 transition"
+      >
+        <ChevronRight className="w-5 h-5" />
+      </button>
+
+      {/* Scrollable Row */}
+      <div
+        ref={scrollRef}
+        className="flex gap-3 sm:gap-4 overflow-x-auto overflow-y-hidden px-4 sm:px-6 lg:px-8 no-scrollbar scroll-smooth snap-x snap-mandatory"
+      >
+        {items.map((item) => {
+          const progress = progressMap?.[item.id];
+          const pct = progress ? Math.min(100, (progress.lastPosition / progress.duration) * 100) : 0;
+
+          return (
+            <div
+              key={item.id}
+              className="flex-shrink-0 w-36 sm:w-48 lg:w-56 snap-start group relative transition-transform duration-200 hover:scale-[1.03]"
+            >
+              <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#171A26] border border-white/10">
+                <Image
+                  src={item.posterUrl}
+                  alt={item.title}
+                  fill
+                  sizes="(max-width: 640px) 144px, (max-width: 1024px) 192px, 224px"
+                  className="object-cover"
+                  loading="lazy"
+                />
+
+                {/* VIP Tag */}
+                {item.tier === 'vip' && (
+                  <div className="absolute top-2 left-2 bg-cta-gradient text-[10px] uppercase font-bold text-white px-1.5 py-0.5 rounded shadow">
+                    VIP
+                  </div>
+                )}
+
+                {/* Hover Play Action */}
+                <div 
+                  onClick={() => onPlay(item)}
+                  className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                >
+                  <div className="w-12 h-12 rounded-full bg-cta-gradient flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition">
+                    <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+                  </div>
+                </div>
+
+                {/* Continue Watching Progress Bar */}
+                {pct > 0 && (
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+                    <div className="h-full bg-[#8B5CF6]" style={{ width: `${pct}%` }} />
+                  </div>
+                )}
+              </div>
+
+              {/* Title & Metadata */}
+              <div className="mt-2">
+                <h3 className="text-xs sm:text-sm font-medium text-white truncate">{item.title}</h3>
+                <div className="flex items-center gap-2 text-[11px] text-[#A1A1B5]">
+                  <span>{item.releaseYear}</span>
+                  <span>•</span>
+                  <span>{item.genres[0]}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};

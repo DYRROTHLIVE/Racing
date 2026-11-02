@@ -1,0 +1,328 @@
+'use client';
+
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import Hls from 'hls.js';
+import { 
+  Play, 
+  Pause, 
+  Volume2, 
+  VolumeX, 
+  Maximize, 
+  Minimize, 
+  RotateCcw, 
+  Settings, 
+  FastForward, 
+  Subtitles, 
+  ArrowLeft 
+} from 'lucide-react';
+
+interface RAzyPlayerProps {
+  src: string;
+  title: string;
+  poster?: string;
+  initialTime?: number;
+  introStart?: number;
+  introEnd?: number;
+  onProgressSync: (time: number, duration: number) => void;
+  onNextEpisode?: () => void;
+  onBack: () => void;
+}
+
+export const RAzyPlayer: React.FC<RAzyPlayerProps> = ({
+  src,
+  title,
+  poster,
+  initialTime = 0,
+  introStart,
+  introEnd,
+  onProgressSync,
+  onNextEpisode,
+  onBack,
+}) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [buffered, setBuffered] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [qualities, setQualities] = useState<{ height: number; levelIndex: number }[]>([]);
+  const [selectedQuality, setSelectedQuality] = useState<number>(-1); // -1 = Auto
+
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Initialize HLS Engine
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    let hls: Hls | null = null;
+
+    if (Hls.isSupported() && src.includes('.m3u8')) {
+      hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+      hls.loadSource(src);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+        const availableLevels = data.levels.map((lvl, index) => ({
+          height: lvl.height,
+          levelIndex: index,
+        }));
+        setQualities(availableLevels);
+        if (initialTime > 0) video.currentTime = initialTime;
+      });
+    } else {
+      // Native fallback (Safari/iOS)
+      video.src = src;
+      if (initialTime > 0) {
+        video.addEventListener('loadedmetadata', () => {
+          video.currentTime = initialTime;
+        }, { once: true });
+      }
+    }
+
+    return () => {
+      if (hls) hls.destroy();
+    };
+  }, [src, initialTime]);
+
+  // Periodic Progress Sync (Debounced Heartbeat)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (videoRef.current && !videoRef.current.paused) {
+        onProgressSync(videoRef.current.currentTime, videoRef.current.duration || 0);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [onProgressSync]);
+
+  // Activity & Controls Timeout Manager
+  const handleUserActivity = useCallback(() => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    controlsTimeoutRef.current = setTimeout(() => {
+      if (isPlaying) setShowControls(false);
+    }, 3500);
+  }, [isPlaying]);
+
+  // Toggle Play
+  const togglePlay = () => {
+    if (!videoRef.current) return;
+    if (videoRef.current.paused) {
+      videoRef.current.play();
+      setIsPlaying(true);
+    } else {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    }
+  };
+
+  // Skip Intro Handler
+  const isInsideIntro = introStart !== undefined && introEnd !== undefined &&
+    currentTime >= introStart && currentTime < introEnd;
+
+  const handleSkipIntro = () => {
+    if (videoRef.current && introEnd) {
+      videoRef.current.currentTime = introEnd;
+    }
+  };
+
+  // Keyboard Shortcuts Handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+      switch (e.key.toLowerCase()) {
+        case ' ':
+        case 'k':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'f':
+          toggleFullscreen();
+          break;
+        case 'm':
+          toggleMute();
+          break;
+        case 'arrowright':
+          if (videoRef.current) videoRef.current.currentTime += 10;
+          break;
+        case 'arrowleft':
+          if (videoRef.current) videoRef.current.currentTime -= 10;
+          break;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPlaying]);
+
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen?.();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen?.();
+      setIsFullscreen(false);
+    }
+  };
+
+  const toggleMute = () => {
+    if (!videoRef.current) return;
+    videoRef.current.muted = !isMuted;
+    setIsMuted(!isMuted);
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = Number(e.target.value);
+    if (videoRef.current) {
+      videoRef.current.currentTime = time;
+      setCurrentTime(time);
+    }
+  };
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      onMouseMove={handleUserActivity}
+      onTouchStart={handleUserActivity}
+      className="relative w-screen h-screen bg-black overflow-hidden flex items-center justify-center"
+    >
+      <video
+        ref={videoRef}
+        poster={poster}
+        playsInline
+        onTimeUpdate={() => {
+          if (videoRef.current) {
+            setCurrentTime(videoRef.current.currentTime);
+            setDuration(videoRef.current.duration || 0);
+            if (videoRef.current.buffered.length > 0) {
+              setBuffered(videoRef.current.buffered.end(videoRef.current.buffered.length - 1));
+            }
+          }
+        }}
+        onClick={togglePlay}
+        className="w-full h-full object-contain cursor-pointer"
+      />
+
+      {/* Skip Intro Button */}
+      {isInsideIntro && (
+        <button
+          onClick={handleSkipIntro}
+          className="absolute bottom-28 right-8 z-30 flex items-center gap-2 px-5 py-2.5 rounded-lg bg-black/80 hover:bg-black text-white text-sm font-bold border border-white/20 shadow-2xl backdrop-blur-md transition active:scale-95"
+        >
+          <FastForward className="w-4 h-4 text-[#8B5CF6]" />
+          <span>Skip Intro</span>
+        </button>
+      )}
+
+      {/* Top Header Controls */}
+      <div
+        className={`absolute top-0 left-0 right-0 p-4 sm:p-6 bg-gradient-to-b from-black/90 to-transparent flex items-center gap-4 transition-opacity duration-300 ${
+          showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <button onClick={onBack} aria-label="Go back" className="text-white hover:text-purple-400 p-2">
+          <ArrowLeft className="w-6 h-6" />
+        </button>
+        <h2 className="text-white font-semibold text-base sm:text-lg truncate">{title}</h2>
+      </div>
+
+      {/* Bottom Floating Control Bar */}
+      <div
+        className={`absolute bottom-0 left-0 right-0 p-4 sm:p-6 bg-gradient-to-t from-black/95 via-black/60 to-transparent space-y-3 transition-opacity duration-300 ${
+          showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        {/* Seek Bar with Buffered Range */}
+        <div className="relative flex items-center group/seek">
+          {/* Buffer Bar */}
+          <div
+            className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-white/30 rounded pointer-events-none"
+            style={{ width: `${(buffered / duration) * 100}%` }}
+          />
+          {/* Active Range */}
+          <input
+            type="range"
+            min={0}
+            max={duration || 100}
+            value={currentTime}
+            onChange={handleSeek}
+            className="w-full h-1 bg-white/20 accent-[#8B5CF6] rounded-lg appearance-none cursor-pointer focus:outline-none"
+          />
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-between text-white text-sm">
+          <div className="flex items-center gap-4 sm:gap-6">
+            <button onClick={togglePlay} aria-label={isPlaying ? 'Pause' : 'Play'}>
+              {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 fill-white" />}
+            </button>
+
+            <button onClick={() => { if (videoRef.current) videoRef.current.currentTime -= 10; }}>
+              <RotateCcw className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2">
+              <button onClick={toggleMute} aria-label={isMuted ? 'Unmute' : 'Mute'}>
+                {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={isMuted ? 0 : volume}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setVolume(val);
+                  if (videoRef.current) videoRef.current.volume = val;
+                  setIsMuted(val === 0);
+                }}
+                className="hidden sm:inline-block w-20 h-1 bg-white/20 accent-[#8B5CF6]"
+              />
+            </div>
+
+            <span className="text-xs text-[#A1A1B5]">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4 sm:gap-5">
+            {/* Speed Selector */}
+            <select
+              value={playbackSpeed}
+              onChange={(e) => {
+                const spd = Number(e.target.value);
+                setPlaybackSpeed(spd);
+                if (videoRef.current) videoRef.current.playbackRate = spd;
+              }}
+              className="bg-transparent text-xs text-[#A1A1B5] focus:text-white border border-white/10 rounded px-1.5 py-0.5"
+            >
+              <option value={0.75}>0.75x</option>
+              <option value={1}>1.0x</option>
+              <option value={1.25}>1.25x</option>
+              <option value={1.5}>1.5x</option>
+              <option value={2}>2.0x</option>
+            </select>
+
+            <button onClick={toggleFullscreen} aria-label="Toggle Fullscreen">
+              {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

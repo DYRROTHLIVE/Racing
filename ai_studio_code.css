@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root[data-theme="dark"],
+:root:not([data-theme="light"]) {
+  --razy-bg: #08090F;
+  --razy-surface: #10121B;
+  --razy-elevated: #171A26;
+  --razy-border: rgba(255, 255, 255, 0.10);
+  --razy-text-primary: #F8FAFC;
+  --razy-text-secondary: #A1A1B5;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --razy-bg: #F8FAFC;
+  --razy-surface: #FFFFFF;
+  --razy-elevated: #F1F5F9;
+  --razy-border: rgba(0, 0, 0, 0.08);
+  --razy-text-primary: #0F172A;
+  --razy-text-secondary: #64748B;
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--razy-bg);
+  color: var(--razy-text-primary);
+  font-family: var(--font-inter), sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Glassmorphism Classes */
+.razy-glass {
+  background: rgba(23, 26, 38, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--razy-border);
+}
+
+.razy-glass-dock {
+  background: rgba(16, 18, 27, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--razy-border);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--razy-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: #252836;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3B3F54;
+}
+
+/* Accessible focus ring */
+:focus-visible {
+  outline: 2px solid #8B5CF6;
+  outline-offset: 2px;
+}
